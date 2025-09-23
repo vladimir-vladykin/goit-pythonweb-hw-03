@@ -2,9 +2,12 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import mimetypes
 import pathlib
+import datetime
+import json
 
 
 class HttpHandler(BaseHTTPRequestHandler):
+
     def do_GET(self):
         pr_url = urllib.parse.urlparse(self.path)
         if pr_url.path == "/":
@@ -15,6 +18,19 @@ class HttpHandler(BaseHTTPRequestHandler):
             self.send_static()
         else:
             self.send_html_file("static/error.html", 404)
+
+    def do_POST(self):
+        data = self.rfile.read(int(self.headers["Content-Length"]))
+        data_parse = urllib.parse.unquote_plus(data.decode())
+
+        data_dict = {
+            key: value for key, value in [el.split("=") for el in data_parse.split("&")]
+        }
+        MessageSaver().save_message(data_dict)
+
+        self.send_response(302)
+        self.send_header("Location", "/")
+        self.end_headers()
 
     def send_html_file(self, filename, status=200):
         self.send_response(status)
@@ -33,6 +49,19 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
         with open(f"static{self.path}", "rb") as file:
             self.wfile.write(file.read())
+
+
+class MessageSaver:
+    def save_message(self, data):
+        now = datetime.datetime.now()
+
+        record = json.dumps({now.__str__(): data})
+        print(record)
+
+    # def __write_into_file(self, date, json):
+    #     filename = "storage/data.json"
+    #     with open(filename, 'w') as f:
+    #         json.dump()
 
 
 def run(server_class=HTTPServer, handler_class=HttpHandler):
