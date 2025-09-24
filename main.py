@@ -1,9 +1,14 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from jinja2 import Environment, FileSystemLoader
 import urllib.parse
 import mimetypes
 import pathlib
 import datetime
 import json
+
+records_template = Environment(loader=FileSystemLoader(".")).get_template(
+    "static/records.html"
+)
 
 
 class HttpHandler(BaseHTTPRequestHandler):
@@ -14,6 +19,9 @@ class HttpHandler(BaseHTTPRequestHandler):
             self.send_html_file("static/index.html")
         elif pr_url.path == "/message.html":
             self.send_html_file("static/message.html")
+        elif pr_url.path == "/read":
+            output = TemplateHandler().render_records_template(records_template)
+            self.send_html_content(output)
         elif pathlib.Path().joinpath("static/" + pr_url.path[1:]).exists():
             self.send_static()
         else:
@@ -26,7 +34,7 @@ class HttpHandler(BaseHTTPRequestHandler):
         data_dict = {
             key: value for key, value in [el.split("=") for el in data_parse.split("&")]
         }
-        MessageSaver().save_message(data_dict)
+        RecordsHandler().save_record(data_dict)
 
         self.send_response(302)
         self.send_header("Location", "/")
@@ -38,6 +46,12 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
         with open(filename, "rb") as fd:
             self.wfile.write(fd.read())
+
+    def send_html_content(self, content, status=200):
+        self.send_response(status)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(content.encode("utf-8"))
 
     def send_static(self):
         self.send_response(200)
@@ -51,23 +65,35 @@ class HttpHandler(BaseHTTPRequestHandler):
             self.wfile.write(file.read())
 
 
-class MessageSaver:
-    def save_message(self, data):
+class RecordsHandler:
+    filename = "storage/data.json"
+
+    def get_records(self):
+        with open(self.filename, "r") as f:
+            records = json.load(f)
+
+        return records
+
+    def save_record(self, data):
         now = datetime.datetime.now()
 
         record = {now.__str__(): data}
         self.__write_into_file(record)
 
     def __write_into_file(self, data):
-        filename = "storage/data.json"
+        with open(self.filename, "r") as f:
+            records = json.load(f)
 
-        with open(filename, "r") as f:
-            existing_json = json.load(f)
+        records.update(data)
 
-        existing_json.update(data)
+        with open(self.filename, "w") as f:
+            json.dump(records, f, ensure_ascii=False, indent=4)
 
-        with open(filename, "w") as f:
-            json.dump(existing_json, f, ensure_ascii=False, indent=4)
+
+class TemplateHandler:
+    def render_records_template(self, template):
+        records = RecordsHandler().get_records()
+        return template.render(records=records.values())
 
 
 def run(server_class=HTTPServer, handler_class=HttpHandler):

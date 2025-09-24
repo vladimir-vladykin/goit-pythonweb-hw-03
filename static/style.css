@@ -16,3 +16,8 @@ body {
 textarea {
   height: 250px;
 }
+
+/* get rid of default margins for records list */
+.records-container ol {
+  padding: 0;
+}
