@@ -55,13 +55,19 @@ class MessageSaver:
     def save_message(self, data):
         now = datetime.datetime.now()
 
-        record = json.dumps({now.__str__(): data})
-        print(record)
+        record = {now.__str__(): data}
+        self.__write_into_file(record)
 
-    # def __write_into_file(self, date, json):
-    #     filename = "storage/data.json"
-    #     with open(filename, 'w') as f:
-    #         json.dump()
+    def __write_into_file(self, data):
+        filename = "storage/data.json"
+
+        with open(filename, "r") as f:
+            existing_json = json.load(f)
+
+        existing_json.update(data)
+
+        with open(filename, "w") as f:
+            json.dump(existing_json, f, ensure_ascii=False, indent=4)
 
 
 def run(server_class=HTTPServer, handler_class=HttpHandler):
